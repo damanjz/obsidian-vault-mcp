@@ -1,0 +1,41 @@
+{
+  "name": "obsidian-vault-mcp",
+  "version": "0.1.0",
+  "description": "Read-only MCP server for searching an Obsidian vault: full-text search, notes, tags, backlinks and outgoing links. Local only, no network, no telemetry.",
+  "license": "MIT",
+  "author": "Daman Reddy",
+  "type": "module",
+  "bin": {
+    "obsidian-vault-mcp": "dist/index.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "obsidian",
+    "markdown",
+    "search",
+    "read-only"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js",
+    "pretest": "tsc -p tsconfig.test.json",
+    "test": "node --test .test-build/test/markdown.test.js .test-build/test/vault.test.js .test-build/test/security.test.js .test-build/test/tools.test.js .test-build/test/e2e.test.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.1",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "typescript": "^7.0.2"
+  }
+}
