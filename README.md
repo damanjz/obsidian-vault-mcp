@@ -1,56 +1,31 @@
-# obsidian-vault-mcp
+<picture>
+  <source media="(max-width: 600px) and (prefers-color-scheme: dark)" srcset=".github/assets/header-phone-dark.png">
+  <source media="(max-width: 600px) and (prefers-color-scheme: light)" srcset=".github/assets/header-phone-light.png">
+  <source media="(prefers-color-scheme: dark)" srcset=".github/assets/header-dark.png">
+  <source media="(prefers-color-scheme: light)" srcset=".github/assets/header-light.png">
+  <img src=".github/assets/header-light.png" width="100%" alt="Obsidian Vault MCP. A read-only MCP server that lets an AI assistant search an Obsidian vault. 49/49 tests pass, Linux + Windows. 87 ms to index a 215-note vault. 5 tools, all read-only. 2 runtime deps: MCP SDK, zod.">
+</picture>
 
-A small, read-only [Model Context Protocol](https://modelcontextprotocol.io) server that lets an AI assistant search and read an Obsidian vault: full-text search, notes with parsed frontmatter, tags, backlinks and outgoing links.
+A small [Model Context Protocol](https://modelcontextprotocol.io) server, written in TypeScript for Node.js, that gives an AI assistant full-text search, notes with parsed frontmatter, tags, backlinks and outgoing links from an Obsidian vault. It talks over stdio, has no write tools, makes no network calls and has no telemetry, so a personal vault can be used as context without handing anything else over.
 
-## Why
+[Portfolio page](https://damanjz.github.io/portfolio/projects/obsidian-vault-mcp/) · [![CI](https://github.com/damanjz/obsidian-vault-mcp/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/damanjz/obsidian-vault-mcp/actions/workflows/ci.yml)
+
+## Results
+
+| Figure | Result | How it is produced |
+|---|---|---|
+| 49/49 tests | Pass on Node 20 and 22, on Ubuntu and Windows | `npm test` (`node:test`); CI run [37829133841](https://github.com/damanjz/obsidian-vault-mcp/actions/runs/37829133841), 2026-10-08 |
+| 87 ms | To index a real 215-note vault | Measured on the author's vault, 2026-10-09; the server prints its index time to stderr at startup (`src/index.ts`). See [Measurement](#measurement) |
+| 5 tools | `search`, `read_note`, `backlinks`, `outgoing_links`, `list_notes`; every one annotated `readOnlyHint: true` | `src/server.ts`; see [Tools](#tools) |
+| 2 runtime dependencies | `@modelcontextprotocol/sdk` and `zod` | `package.json` |
+| 3 to 12 ms | Per search on the same 215-note vault | See [Measurement](#measurement) |
+
+## How it works
 
 - **Read-only.** There are no write tools. The code only calls `readdir`, `stat`, `realpath` and `readFile`, and a test enforces that.
-- **Local.** It talks over stdio. It makes no network calls and has no telemetry.
+- **Local.** It talks over stdio. It makes no network calls and has no telemetry. stdout carries the MCP protocol only; diagnostics go to stderr.
 - **Obsidian-aware.** It understands `[[Note|alias]]`, `[[Note#Heading]]`, `![[embeds]]`, Markdown links, frontmatter `tags`/`aliases` and inline `#tags`, including nested tags. It resolves links the way Obsidian does.
-- **Small.** Two runtime dependencies: `@modelcontextprotocol/sdk` and `zod`. There is no search engine library. Ranking is BM25 over an in-memory index, and only changed files are re-read.
-
-## Install
-
-Needs Node.js 20 or newer.
-
-```sh
-git clone <this repo> obsidian-vault-mcp
-cd obsidian-vault-mcp
-npm install
-npm run build
-```
-
-Try it against the bundled sample vault:
-
-```sh
-node dist/index.js examples/sample-vault
-```
-
-## Configure
-
-Give it the vault path as the first argument or in the `VAULT_PATH` environment variable. Use absolute paths.
-
-**Claude Code**
-
-```sh
-claude mcp add obsidian-vault -- node /abs/path/obsidian-vault-mcp/dist/index.js "/abs/path/to/vault"
-```
-
-**Claude Desktop** (`claude_desktop_config.json`), or a project `.mcp.json`:
-
-```json
-{
-  "mcpServers": {
-    "obsidian-vault": {
-      "command": "node",
-      "args": ["/abs/path/obsidian-vault-mcp/dist/index.js"],
-      "env": { "VAULT_PATH": "/abs/path/to/vault" }
-    }
-  }
-}
-```
-
-On Windows, write paths as `C:/Users/you/Vault` or escape each backslash (`C:\\Users\\you\\Vault`).
+- **Small.** There is no search engine library. Ranking is BM25 over an in-memory index, and only changed files are re-read.
 
 ## Tools
 
@@ -84,14 +59,21 @@ Every tool is annotated `readOnlyHint: true` and `openWorldHint: false`, and ret
 - Notes larger than 5 MB are skipped. Responses are capped by the `limit` and `max_chars` arguments.
 - The index reloads from disk at most every 2 seconds, and only re-reads files whose size or modified time changed.
 
-## Development
+## Measurement
 
-```sh
-npm run build   # compile src/ to dist/
-npm test        # compile src/ and test/, then run all tests with node:test
-```
+Measured on 2026-10-09 against the author's own Obsidian vault (not in this repo):
 
-The tests cover:
+| What | Result |
+|---|---|
+| Notes indexed at startup | 215 notes in 87 ms |
+| `search` calls | 3 to 12 ms each |
+| `backlinks` for the vault's home note | 33 notes, 48 links; matched an independent count |
+
+To measure your own vault, start the server on it: the startup line on stderr reports the note count and the index time. On the bundled sample vault it reads `[obsidian-vault-mcp] vault <path>: 12 notes, 1 other files indexed in 10 ms` (Windows 11, Node 24, 2026-10-12).
+
+## Tests
+
+`npm test` runs 49 tests with Node's built-in `node:test` ([latest CI run](https://github.com/damanjz/obsidian-vault-mcp/actions/workflows/ci.yml)). They cover:
 
 - Frontmatter and link parsing.
 - Link resolution.
@@ -100,8 +82,65 @@ The tests cover:
 - Unicode.
 - An end-to-end run that starts the server over stdio and calls every tool through the MCP SDK client.
 
-`examples/sample-vault/` is a small vault of invented notes used by the tests.
+## Quick start
 
-## License
+Needs Node.js 20 or newer.
+
+```sh
+git clone https://github.com/damanjz/obsidian-vault-mcp.git
+cd obsidian-vault-mcp
+npm install
+npm run build                            # compile src/ to dist/
+npm test                                 # compile src/ and test/, then run all tests
+node dist/index.js examples/sample-vault # try it against the bundled sample vault
+```
+
+Give it the vault path as the first argument or in the `VAULT_PATH` environment variable. Use absolute paths.
+
+**Claude Code**
+
+```sh
+claude mcp add obsidian-vault -- node /abs/path/obsidian-vault-mcp/dist/index.js "/abs/path/to/vault"
+```
+
+**Claude Desktop** (`claude_desktop_config.json`), or a project `.mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "obsidian-vault": {
+      "command": "node",
+      "args": ["/abs/path/obsidian-vault-mcp/dist/index.js"],
+      "env": { "VAULT_PATH": "/abs/path/to/vault" }
+    }
+  }
+}
+```
+
+On Windows, write paths as `C:/Users/you/Vault` or escape each backslash (`C:\\Users\\you\\Vault`).
+
+## Repo layout
+
+```
+obsidian-vault-mcp/
+├── src/
+│   ├── index.ts        # entry point: reads the vault path, builds the index, starts stdio
+│   ├── server.ts       # MCP tool registration, zod input schemas, read-only annotations
+│   ├── tools.ts        # tool implementations and limits (BM25 search, links, listing)
+│   ├── vault.ts        # in-memory index, walker and path security checks
+│   └── markdown.ts     # frontmatter, wikilink, Markdown link, embed and tag parsing
+├── test/               # node:test suites, including the end-to-end stdio run
+├── examples/sample-vault/  # small vault of invented notes used by the tests
+└── .github/workflows/ci.yml  # Node 20 and 22 on Ubuntu and Windows
+```
+
+## Limits
+
+- Read-only by design: it cannot create, edit, move or delete notes.
+- Search is keyword-based (BM25), not semantic; there are no embeddings.
+- The 87 ms and 3 to 12 ms figures come from one vault on one machine; times grow with vault size.
+- Notes larger than 5 MB and everything in dot-folders are skipped.
+
+## Licence
 
 MIT, see [LICENSE](LICENSE).
